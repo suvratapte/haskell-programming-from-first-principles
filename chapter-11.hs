@@ -1,6 +1,9 @@
 -- Chapter 10 exercises
 {-# LANGUAGE FlexibleInstances #-}
 
+import Data.Char -- Required for the cipher exercise
+import Data.List -- Required for the phone exercise
+
 -- Dog Types
 
 -- 1 - Type constructor
@@ -94,7 +97,7 @@ data Example = MakeExample deriving Show
 
 -- 3
 data Example' = MakeExample' Int deriving Show
--- :type MakeExample' will now be `Int -> Example`.
+-- :type MakeExample' will now be (map (`elem` bs) as).
 
 -- Logic Goats
 
@@ -323,3 +326,177 @@ foldTree ::
   -> BinaryTree a
   -> b
 foldTree f i = foldr f i . inorder
+
+-- Chapter exercises
+
+-- 1 - a
+-- 2 - c
+-- 3 - b
+-- 4 - c
+
+-- Ciphers
+cipherChar :: Int -> Char -> Char
+cipherChar n c =
+  let baseIndex = if isUpper c then ord 'A' else ord 'a'
+      index = ord c - baseIndex
+      newIndex = mod (index + n) 26
+  in chr $ newIndex + baseIndex
+
+vigenere :: String -> String -> String
+vigenere key str = go str 0
+  where
+    go [] index = []
+    go (' ':xs) index = ' ' : go xs index
+    go (x:xs) index =
+      let
+        char = (key !! index)
+        baseIndex = if isUpper char then ord 'A' else ord 'a'
+        offset = ord char - baseIndex
+      in
+        cipherChar offset x : go xs (mod (index + 1) (length key))
+
+-- As-patterns
+
+-- 1
+isSubseqOf :: (Eq a) => [a] -> [a] -> Bool
+isSubseqOf [] [] = True
+isSubseqOf [] bs = True
+isSubseqOf _ [] = False
+isSubseqOf (a : as) bs = isSubseqOf as (drop 1 (dropWhile (/= a) bs))
+
+-- Using "."
+isSubSeqOf' :: Eq a => [a] -> [a] -> Bool
+isSubSeqOf' [] _ = True
+isSubSeqOf' _ [] = False
+isSubSeqOf' aWhole@(a:as) (b:bs)
+  | a == b = isSubSeqOf' as bs
+  | otherwise = isSubSeqOf' aWhole bs
+
+-- 2
+capitalizeWords :: String -> [(String, String)]
+capitalizeWords = map (\word@(w:ws) -> (word, toUpper w : ws)) . words
+
+-- Language exercises
+
+-- 1
+capitalizeWord :: String -> String
+capitalizeWord [] = []
+capitalizeWord (x:xs) = toUpper x : xs
+
+-- 2
+
+-- This function handles a sentence starting with a space or new line.
+capitalizeSentence :: String -> String
+capitalizeSentence (s@' ' : xs) = s : capitalizeWord xs
+capitalizeSentence (s@'\n' : xs) = s : capitalizeWord xs
+capitalizeSentence xs = capitalizeWord xs
+
+splice :: (Eq a) => [a] -> a -> [[a]]
+splice xs e = go xs []
+  where go xs xss
+          | null xs = xss
+          | otherwise = go (drop 1 (dropWhile (/= e) xs))
+                           (xss ++ [takeWhile (/= e) xs])
+
+join :: a -> [[a]] -> [a]
+join _ [] = []
+join separator [x] = x
+join separator (x:xs) = x ++ separator : join separator xs
+
+capitalizeParagraph :: String -> String
+capitalizeParagraph str =
+  let s = splice str '.'
+      sc = map capitalizeSentence s
+  in
+    join '.' sc
+
+-- Phone exercise
+
+-- 1
+data KeyLayout =
+  MkKeyLayout {
+    key :: Char
+  , chars :: [Char]
+  }
+  deriving (Show, Eq)
+
+data DaPhone = MkDaPhone
+  {
+    keys :: [KeyLayout]
+  }
+  deriving (Show, Eq)
+
+phone =  MkDaPhone [ MkKeyLayout '1' "1"
+                   , MkKeyLayout '2' "abc2"
+                   , MkKeyLayout '3' "def3"
+                   , MkKeyLayout '4' "ghi4"
+                   , MkKeyLayout '5' "jkl5"
+                   , MkKeyLayout '6' "mno6"
+                   , MkKeyLayout '7' "pqrs7"
+                   , MkKeyLayout '8' "tuv8"
+                   , MkKeyLayout '9' "wxyz9"
+                   , MkKeyLayout '*' "*^"
+                   , MkKeyLayout '0' "+ 0"
+                   , MkKeyLayout '#' ".,#"]
+
+-- 2
+
+type Digit = Char
+
+type Presses = Int
+
+elemIndex' :: (Eq a) => a -> [a] -> Int
+elemIndex' e xs = go xs 0
+  where
+    go list index
+      | null list = -1
+      | e == head list = index
+      | otherwise = go (tail list) (index + 1)
+
+reverseTaps :: DaPhone -> Char -> [(Digit, Presses)]
+reverseTaps (MkDaPhone keys) ch =
+  let
+    upper = isUpper ch
+    lowerCh = toLower ch
+    (MkKeyLayout key chars) = head $ filter (\(MkKeyLayout key chars) -> lowerCh `elem` map toLower chars) keys
+    index = lowerCh `elemIndex'` chars
+  in
+    if upper
+    then [('*', 1), (key, index + 1)]
+    else [(key, index + 1)]
+
+convo :: [String]
+convo =  [ "Wanna play 20 questions"
+         , "Ya"
+         , "U 1st haha"
+         , "Lol ok. Have u ever tasted alcohol"
+         , "Lol ya"
+         , "Wow ur cool haha. Ur turn"
+         , "Ok. Do u think I am pretty Lol"
+         , "Lol ya"
+         , "Just making sure rofl ur turn"]
+
+cellPhonesDead :: DaPhone -> String -> [(Digit, Presses)]
+cellPhonesDead phone = concatMap (reverseTaps phone)
+
+convToTaps :: DaPhone -> [String] -> [[(Digit, Presses)]]
+convToTaps phone = map $ cellPhonesDead phone
+
+-- 3
+fingerTaps :: [(Digit, Presses)] -> Presses
+fingerTaps = sum . map snd
+
+-- 4
+mostPopularLetter :: String -> Char
+mostPopularLetter = head . last . sortOn length . group . sort
+
+cost :: DaPhone -> Char -> Presses
+cost phone = fingerTaps . reverseTaps phone
+
+-- 5
+
+coolestLtr :: [String] -> Char
+coolestLtr = mostPopularLetter . filter (/= '\n') . unwords
+
+coolestWord :: [String] -> String
+coolestWord = head . last . sortOn length . group . sort . words . unwords
