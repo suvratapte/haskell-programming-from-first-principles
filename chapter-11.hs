@@ -483,10 +483,12 @@ convToTaps :: DaPhone -> [String] -> [[(Digit, Presses)]]
 convToTaps phone = map $ cellPhonesDead phone
 
 -- 3
+
 fingerTaps :: [(Digit, Presses)] -> Presses
 fingerTaps = sum . map snd
 
 -- 4
+
 mostPopularLetter :: String -> Char
 mostPopularLetter = head . last . sortOn length . group . sort
 
@@ -500,3 +502,19 @@ coolestLtr = mostPopularLetter . filter (/= '\n') . unwords
 
 coolestWord :: [String] -> String
 coolestWord = head . last . sortOn length . group . sort . words . unwords
+
+-- Hutton's Razor
+
+data Expr = Lit Integer
+          | Add Expr Expr
+
+-- 1
+
+eval :: Expr -> Integer
+eval (Lit int) = int
+eval (Add e e') = eval e + eval e'
+
+-- 2
+printExpr :: Expr -> String
+printExpr (Lit int) = show int
+printExpr (Add e e') = printExpr e ++ " + " ++ printExpr e'
