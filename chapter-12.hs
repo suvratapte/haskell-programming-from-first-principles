@@ -236,3 +236,88 @@ either' _ fbc (Right b) = fbc b
 eitherMaybe'' :: (b -> c) -> Either a b -> Maybe c
 eitherMaybe'' fbc (Left _) = Nothing
 eitherMaybe'' fbc (Right b) = Just . fbc $ b
+
+-- Write your own iterate and unfoldr
+
+-- 1
+
+{-
+Write the function myIterate using direct recursion. Compare the behavior with
+the built-in iterate to gauge correctness. Do not look at the source or any
+examples of iterate so that you are forced to do this yourself.
+-}
+
+myIterate :: (a -> a) -> a -> [a]
+myIterate f a = a : myIterate f (f a)
+
+-- 2
+
+{-
+Write the function myUnfoldr using direct recursion. Compare with the built-in
+unfoldr to check your implementation. Again, don’t look at implementations of
+unfoldr so that you figure it out yourself.
+-}
+
+myUnfoldr :: (b -> Maybe (a, b)) -> b -> [a]
+myUnfoldr f b =
+  case f b of
+    Just (a, b) -> a : myUnfoldr f b
+    Nothing -> []
+
+-- 3
+
+{-
+Rewrite myIterate into betterIterate using myUnfoldr. A hint — we used unfoldr
+to produce the same results as iterate earlier. Do this with different functions
+and see if you can abstract the structure out.
+-}
+
+betterIterate :: (a -> a) -> a -> [a]
+betterIterate f = myUnfoldr (\x -> Just (x, f x))
+
+-- Finally something other than a list!
+
+{-
+Given the BinaryTree from last chapter, complete the following exercises. Here’s
+that datatype again:
+-}
+
+data BinaryTree a =
+    Leaf
+  | Node (BinaryTree a) a (BinaryTree a)
+  deriving (Eq, Ord, Show)
+
+-- 1 - Write unfold for BinaryTree.
+
+unfold :: (a -> Maybe (a, b, a)) -> a -> BinaryTree b
+unfold f a =
+  case f a of
+    Just (l, b, r) -> Node (unfold f l) b (unfold f r)
+    Nothing -> Leaf
+
+-- (Not in the exercise) Code to generate a binary tree with root 5 which goes
+-- to left till 0 and to the right till 10
+unfold (\x ->
+          if x == 5
+          then Just (x - 1, x, x + 1)
+          else
+            if x < 5 && x > 0
+            then Just (x - 1, x, 0)
+            else
+              if x > 5 && x < 10
+              then Just (0, x, x + 1)
+              else Nothing)
+       5
+
+-- 2 - Make a tree builder.
+
+{-
+Using the unfold function you’ve made for BinaryTree, write the following
+function:
+-}
+
+treeBuild :: Integer -> BinaryTree Integer
+treeBuild n =
+  unfold (\x -> if x < n
+                then Just (x + 1, x, x + 1)
+                else Nothing) 0
