@@ -181,3 +181,58 @@ flipMaybe mxs =
   if all isJust mxs
   then Just . catMaybes $ mxs
   else Nothing
+
+-- Small library for Either
+
+{-
+Write each of the following functions. If more than one possible unique function
+exists for the type, use common sense to determine what it should do.
+-}
+
+-- 1 -
+
+{-
+Try to eventually arrive at a solution that uses foldr, even if earlier
+versions don’t use foldr.
+-}
+
+lefts' :: [Either a b] -> [a]
+lefts' = foldr (\x acc ->
+                  case x of
+                    Left a -> a : acc
+                    _ -> acc)
+               []
+
+-- 2 - Same as the last one. Use foldr eventually.
+
+rights' :: [Either a b] -> [b]
+rights' = foldr (\x acc -> case x of
+                   Right b -> b : acc
+                   _ -> acc)
+                []
+
+-- 3
+
+partitionEithers' :: [Either a b] -> ([a], [b])
+partitionEithers' = foldr (\x (as, bs) -> case x of
+                              Left a -> (a : as, bs)
+                              Right b -> (as, b : bs))
+                          ([], [])
+
+-- 4
+
+eitherMaybe' :: (b -> c) -> Either a b -> Maybe c
+eitherMaybe' _ (Left _) = Nothing
+eitherMaybe' f (Right b) = Just . f $ b
+
+-- 5 - This is a general catamorphism for Either values.
+
+either' :: (a -> c) -> (b -> c) -> Either a b -> c
+either' fac _ (Left a) = fac a
+either' _ fbc (Right b) = fbc b
+
+-- 6 - Same as before, but use the either' function you just wrote.
+
+eitherMaybe'' :: (b -> c) -> Either a b -> Maybe c
+eitherMaybe'' fbc (Left _) = Nothing
+eitherMaybe'' fbc (Right b) = Just . fbc $ b
