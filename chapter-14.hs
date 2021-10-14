@@ -1,5 +1,8 @@
 -- Chapter 14
 
+-- For allowing explicit type signatures
+{-# LANGUAGE InstanceSigs #-}
+
 -- Disabling warnings since the exercises are not really practical
 
 module Chapter_14 where
@@ -7,6 +10,7 @@ module Chapter_14 where
 import Data.List (intercalate, sort)
 import Test.Hspec
 import Test.QuickCheck
+import Data.Char
 
 -- Validating numbers into words
 
@@ -202,3 +206,162 @@ prop_lengthTake xs (NonNegative n) = length (take n xs) == n
 
 prop_readShow :: Int -> Bool
 prop_readShow x = read (show x) == x
+
+-- Failure
+
+-- Find out why this property fails.
+
+square :: Double -> Double
+square x = x * x
+
+-- Works for non negative numbers. Not for negative numbers since sqrt returns
+-- positive.
+prop_squareSqrt :: NonNegative Double -> Bool
+prop_squareSqrt (NonNegative x) = sqrt (square x) == x
+
+-- Doesn't work because sqrt roots are approximations and squaring them doesn't
+-- give the same number back.
+prop_squareSqrt' :: NonNegative Double -> Bool
+prop_squareSqrt' (NonNegative x) = sqrt x * sqrt x == x
+
+-- Idempotence
+
+  {-
+Idempotence refers to a property of some functions in which the result value --
+does not change beyond the initial application. If you apply the function once, --
+it returns a result, and applying the same function to that value won’t ever --
+change it. You might think of a list that you sort: once you sort it, the sorted --
+list will remain the same after applying the same sorting function to it. It’s --
+already sorted, so new applications of the sort function won’t change it. --
+--
+Use QuickCheck and the following helper functions to demonstrate idempotence for --
+the following: --
+-}
+
+twice f = f . f
+fourTimes = twice . twice
+
+-- 1
+
+capitalizeWord :: String -> String
+capitalizeWord [] = []
+capitalizeWord (x:xs) = toUpper x : xs
+
+f :: String -> Bool
+f x =
+  (capitalizeWord x == twice capitalizeWord x)
+  &&
+  (capitalizeWord x == fourTimes capitalizeWord x)
+
+f' :: [Int] -> Bool
+f' x =
+  (sort x == twice sort x)
+  &&
+  (sort x == fourTimes sort x)
+
+-- Make a Gen random generator for the datatype
+
+{-
+We demonstrated in the chapter how to make Gen generators for different
+datatypes. We are so certain you enjoyed that, we are going to ask you to do it
+for some new datatypes:
+-}
+
+-- 1
+-- Equal probabilities for each.
+
+data Fool =
+    Fulse
+  | Frue
+  deriving (Eq, Show)
+
+genFool :: Gen Fool
+genFool = elements [Fulse, Frue]
+
+
+-- 2
+-- 2/3s chance of Fulse, 1/3 chance of Frue.
+
+genFool' :: Gen Fool
+genFool' = frequency [ (2, return Fulse)
+                     , (1, return Frue) ]
+
+-- Hangman testing
+
+{-
+Next, you should go back to the hangman project from the previous chapter and
+write tests. The kinds of tests you can write at this point will be limited due
+to the interactive nature of the game. However, you can test the
+functions. Focus your attention on testing the following: fillInCharacter and
+handleGuess.
+-}
+
+-- See the tests file in the hangman project.
+
+-- Validating ciphers
+
+{-
+As a final exercise, create QuickCheck properties that verify your Caesar and
+Vigenère ciphers return the same data after encoding and decoding a string.
+-}
+
+cipherChar :: Int -> Char -> Char
+cipherChar n c =
+  let baseIndex = if isUpper c then ord 'A' else ord 'a'
+      index = ord c - baseIndex
+      newIndex = mod (index + n) 26
+  in chr $ newIndex + baseIndex
+
+cipher n = map $ cipherChar n
+
+unCipherChar n = cipherChar (26 - mod n 26)
+
+unCipher n = map $ unCipherChar n
+
+vigenere :: String -> String -> String
+vigenere key str = go str 0
+  where
+    go [] _ = []
+    go (' ':xs) index = ' ' : go xs index
+    go (x:xs) index =
+      let
+        char = (key !! index)
+        baseIndex = if isUpper char then ord 'A' else ord 'a'
+        offset = ord char - baseIndex
+      in
+        cipherChar offset x : go xs (mod (index + 1) (length key))
+
+unVigenere :: String -> String -> String
+unVigenere key str = go str 0
+  where
+    go [] _ = []
+    go (' ':xs) index = ' ' : go xs index
+    go (x:xs) index =
+      let
+        char = (key !! index)
+        baseIndex = if isUpper char then ord 'A' else ord 'a'
+        offset = ord char - baseIndex
+      in
+        unCipherChar offset x : go xs (mod (index + 1) (length key))
+
+newtype AlphabetString = AlphabetString { unAlphabetString :: String }
+  deriving (Eq, Show)
+
+instance Arbitrary AlphabetString where
+  arbitrary :: Gen AlphabetString
+  arbitrary = fmap AlphabetString (listOf $ elements ['a' .. 'z'])
+
+newtype NonEmptyAlphabetString =
+  NonEmptyAlphabetString { unNonEmptyAlphabetString :: String }
+  deriving (Eq, Show)
+
+instance Arbitrary NonEmptyAlphabetString where
+  arbitrary :: Gen NonEmptyAlphabetString
+  arbitrary = fmap NonEmptyAlphabetString (listOf1 $ elements ['a' .. 'z'])
+
+prop_caesarIdentity :: Int -> AlphabetString -> Bool
+prop_caesarIdentity n (AlphabetString str) = str == (unCipher n . cipher n) str
+
+prop_vigenereIdentity :: NonEmptyAlphabetString -> AlphabetString -> Bool
+prop_vigenereIdentity (NonEmptyAlphabetString key) (AlphabetString str) =
+  str == (unVigenere key . vigenere key) str

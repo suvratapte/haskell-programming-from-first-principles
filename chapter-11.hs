@@ -345,7 +345,7 @@ cipherChar n c =
 vigenere :: String -> String -> String
 vigenere key str = go str 0
   where
-    go [] index = []
+    go [] _ = []
     go (' ':xs) index = ' ' : go xs index
     go (x:xs) index =
       let
