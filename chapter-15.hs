@@ -2,8 +2,6 @@
 
 import Data.Monoid -- Required for some expected output code in the book.
 import Test.QuickCheck
-import Test.QuickCheck.Arbitrary
-import Test.QuickCheck.Gen
 
 -- Exercise: Optional Monoid
 
@@ -88,14 +86,14 @@ instance Semigroup (First' a) where
 instance Monoid (First' a) where
   mempty = First' Nada
 
-firstMappend :: First' a -> First' a -> First' a
-firstMappend = mappend
-
 instance Arbitrary a => Arbitrary (First' a) where
   arbitrary = do
     a <- arbitrary
-    frequency [ (3, return First' $ Only (arbitrary a))
-              , (1, return $ First' Nada)]
+    frequency [ (3, return . First' $ Only a)
+              , (1, return $ First' Nada) ]
+
+firstMappend :: First' a -> First' a -> First' a
+firstMappend = mappend
 
 type FirstMappend =
      First' String
@@ -105,8 +103,17 @@ type FirstMappend =
 
 type FstId = First' String -> Bool
 
+semigroupAssoc :: (Semigroup a, Eq a) => a -> a -> a -> Bool
+semigroupAssoc x y z = (x <> y) <> z == x <> (y <> z)
+
+monoidLeftIdentity :: (Monoid a, Eq a) => a -> Bool
+monoidLeftIdentity x = x <> mempty == x
+
+monoidRightIdentity :: (Monoid a, Eq a) => a -> Bool
+monoidRightIdentity x = mempty <> x == x
+
 main :: IO ()
 main = do
-  quickCheck (monoidAssoc :: FirstMappend)
+  quickCheck (semigroupAssoc :: FirstMappend)
   quickCheck (monoidLeftIdentity :: FstId)
   quickCheck (monoidRightIdentity :: FstId)
