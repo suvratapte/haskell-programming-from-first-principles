@@ -6,7 +6,7 @@
 module Chapter_15 where
 
 import Data.Monoid -- Required for some expected output code in the book.
-import Test.QuickCheck
+import Test.QuickCheck (CoArbitrary, Arbitrary,  quickCheck, arbitrary, frequency)
 
 -- Exercise: Optional Monoid
 
@@ -328,8 +328,65 @@ instance Show (Combine a b) where
 combineAssoc :: Int -> Combine Int String -> Combine Int String -> Combine Int String -> Bool
 combineAssoc x f g h = unCombine ((f <> g) <> h) x == unCombine (f <> (g <> h)) x
 
-main' :: IO ()
+-- 10
+
+{-
+Hint: We can do something that seems a little more specific and natural to
+functions now that the input and output types are the same.
+-}
+
+newtype Comp a = Comp { unComp :: (a -> a) }
+
+instance Show (Comp a) where
+  show _ = "Comp"
+
+instance Semigroup (Comp a) where
+  (Comp f) <> (Comp g) = Comp $ f . g
+
+instance (CoArbitrary a, Arbitrary a) => Arbitrary (Comp a) where
+  arbitrary = Comp <$> arbitrary
+
+compAssoc :: Int -> Comp Int -> Comp Int -> Comp Int -> Bool
+compAssoc x f g h = unComp ((f <> g) <> h) x == unComp (f <> (g <> h)) x
+
+-- 11
+
+-- Look familiar?
+
+data Validation a b = Failure a | Success b
+  deriving (Eq, Show)
+
+instance Semigroup a => Semigroup (Validation a b) where
+  (Success b) <> _ = (Success b)
+  _ <> (Success b) = (Success b)
+  (Failure a) <> (Failure a') = Failure $ a <> a'
+
+-- Given this code:
+
 main' = do
+  let failure :: String -> Validation String Int
+      failure = Failure
+
+      success :: Int -> Validation String Int
+      success = Success
+
+  print $ success 1 <> failure "blah"
+  print $ failure "woot" <> failure "blah"
+  print $ success 1 <> success 2
+  print $ failure "woot" <> success 2
+
+{-
+You should get this output:
+
+Prelude> main''
+Success 1
+Failure "wootblah"
+Success 1
+Success 2
+-}
+
+main'' :: IO ()
+main'' = do
   quickCheck (semigroupAssoc :: TrivAssoc)
   quickCheck (semigroupAssoc :: IdentityAssoc)
   quickCheck (semigroupAssoc :: TwoAssoc)
@@ -339,3 +396,4 @@ main' = do
   quickCheck (semigroupAssoc :: BoolDisjAssoc)
   quickCheck (semigroupAssoc :: OrAssoc)
   quickCheck combineAssoc
+  quickCheck compAssoc
