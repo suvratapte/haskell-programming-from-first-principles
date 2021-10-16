@@ -1,5 +1,10 @@
 -- Chapter 15 exercises
 
+{-# LANGUAGE DerivingVia #-}
+{-# OPTIONS_GHC -w #-}
+
+module Chapter_15 where
+
 import Data.Monoid -- Required for some expected output code in the book.
 import Test.QuickCheck
 
@@ -117,3 +122,220 @@ main = do
   quickCheck (semigroupAssoc :: FirstMappend)
   quickCheck (monoidLeftIdentity :: FstId)
   quickCheck (monoidRightIdentity :: FstId)
+
+-- Chapter exercises
+
+-- Semigroup exercises
+
+{-
+Given a datatype, implement the Semigroup instance. Add Semigroup constraints to
+type variables where needed. Use the Semigroup class from the semigroups
+library (or from base if you are on GHC 8) or write your own. When we use (<>),
+we mean the infix mappend from the Semigroup typeclass.
+-}
+
+-- 1
+
+{-
+Validate all of your instances with QuickCheck. Since Semigroup’s only law is
+associativity, that’s the only property you need to reuse. Keep in mind that
+you’ll potentially need to import the modules for Monoid and Semigroup and to
+avoid naming conflicts for the (<>) depending on your version of GHC.
+-}
+
+data Trivial = Trivial
+  deriving (Eq, Show)
+
+instance Semigroup Trivial where
+  _ <> _ = Trivial
+
+instance Arbitrary Trivial where
+  arbitrary = return Trivial
+
+type TrivAssoc = Trivial -> Trivial -> Trivial -> Bool
+
+-- 2
+
+newtype Identity a = Identity a
+  deriving (Eq, Show)
+
+instance Semigroup a => Semigroup (Identity a) where
+  (Identity x) <> (Identity y) = Identity $ x <> y
+
+instance Arbitrary a => Arbitrary (Identity a) where
+  arbitrary = Identity <$> arbitrary
+
+type IdentityAssoc = Identity [Int] -> Identity [Int] -> Identity [Int] -> Bool
+
+-- 3
+
+data Two a b = Two a b
+  deriving (Eq, Show)
+
+instance (Semigroup a, Semigroup b) => Semigroup (Two a b) where
+  (Two x y) <> (Two x' y') = Two (x <> x') (y <> y')
+
+instance (Arbitrary a, Arbitrary b) => Arbitrary (Two a b) where
+  arbitrary = do
+    a <- arbitrary
+    b <- arbitrary
+    return $ Two a b
+
+type TwoAssoc = Two [Int] String -> Two [Int] String -> Two [Int] String -> Bool
+
+-- 4
+
+data Three a b c = Three a b c
+  deriving (Eq, Show)
+
+instance (Semigroup a, Semigroup b, Semigroup c) => Semigroup (Three a b c) where
+  (Three x y z) <> (Three x' y' z') = Three (x <> x') (y <> y') (z <> z')
+
+instance (Arbitrary a, Arbitrary b, Arbitrary c) => Arbitrary (Three a b c) where
+  arbitrary = do
+    a <- arbitrary
+    b <- arbitrary
+    c <- arbitrary
+    return $ Three a b c
+
+type ThreeAssoc = Three [Int] String [Char] -> Three [Int] String [Char] -> Three [Int] String [Char] -> Bool
+
+-- 5
+
+data Four a b c d = Four a b c d
+  deriving (Eq, Show)
+
+instance (Semigroup a, Semigroup b, Semigroup c, Semigroup d) => Semigroup (Four a b c d) where
+  (Four w x y z) <> (Four w' x' y' z') = Four (w <> w') (x <> x') (y <> y') (z <> z')
+
+instance (Arbitrary a, Arbitrary b, Arbitrary c, Arbitrary d) => Arbitrary (Four a b c d) where
+  arbitrary = do
+    a <- arbitrary
+    b <- arbitrary
+    c <- arbitrary
+    d <- arbitrary
+    return $ Four a b c d
+
+type FourAssoc = Four [Int] String [Char] [Bool] -> Four [Int] String [Char] [Bool] -> Four [Int] String [Char] [Bool] -> Bool
+
+-- 6
+
+{-
+What it should do:
+Prelude> (BoolConj True) <> (BoolConj True)
+BoolConj True
+Prelude> (BoolConj True) <> (BoolConj False)
+BoolConj False
+-}
+
+newtype BoolConj = BoolConj Bool
+  deriving (Eq, Show, Arbitrary) via Bool
+
+instance Semigroup BoolConj where
+  (BoolConj x) <> (BoolConj y) = BoolConj $ x && y
+
+type BoolConjAssoc = BoolConj -> BoolConj -> BoolConj -> Bool
+
+-- 7
+
+{-
+What it should do:
+     Prelude> (BoolDisj True) <> (BoolDisj True)
+     BoolDisj True
+     Prelude> (BoolDisj True) <> (BoolDisj False)
+     BoolDisj True
+-}
+
+newtype BoolDisj = BoolDisj Bool
+  deriving (Eq, Show, Arbitrary) via Bool
+
+instance Semigroup BoolDisj where
+  (BoolDisj x) <> (BoolDisj y) = BoolDisj $ x || y
+
+type BoolDisjAssoc = BoolDisj -> BoolDisj -> BoolDisj -> Bool
+
+-- 8
+
+{-
+The Semigroup for Or should have the following behavior. We can think of this as
+having a “sticky” Snd value where it’ll hold onto the first Snd value when and
+if one is passed as an argument. This is similar to the First' Monoid you wrote
+earlier.
+
+Prelude> Fst 1 <> Snd 2
+     Snd 2
+     Prelude> Fst 1 <> Fst 2
+     Fst 2
+     Prelude> Snd 1 <> Fst 2
+     Snd 1
+     Prelude> Snd 1 <> Snd 2
+     Snd 1
+
+-}
+
+data Or a b = Fst a | Snd b
+  deriving (Eq, Show)
+
+instance (Arbitrary a, Arbitrary b) => Arbitrary (Or a b) where
+  arbitrary = do
+    a <- arbitrary
+    b <- arbitrary
+    frequency
+      [ (1, return $ Fst a),
+        (1, return $ Snd b) ]
+
+instance Semigroup (Or a b) where
+  (Snd b) <> _ = Snd b
+  _ <> (Snd b) = Snd b
+  (Fst a) <> _ = Fst a
+
+type OrAssoc = Or Int Int -> Or Int Int -> Or Int Int -> Bool
+
+-- 9
+
+{-
+What it should do:
+     Prelude> let f = Combine $ \n -> Sum (n + 1)
+     Prelude> let g = Combine $ \n -> Sum (n - 1)
+     Prelude> unCombine (f <> g) $ 0
+     Sum {getSum = 0}
+     Prelude> unCombine (f <> g) $ 1
+     Sum {getSum = 2}
+     Prelude> unCombine (f <> f) $ 1
+     Sum {getSum = 4}
+     Prelude> unCombine (g <> f) $ 1
+     Sum {getSum = 2}
+
+Hint: This function will eventually be applied to a single value of type a. But
+you’ll have multiple functions that can produce a value of type b. How do we
+combine multiple values so we have a single b? This one will probably be tricky!
+Remember that the type of the value inside of Combine is that of a function. The
+type of functions should already have an Arbitrary instance that you can reuse
+for testing this instance.
+-}
+
+newtype Combine a b = Combine { unCombine :: (a -> b) }
+
+instance Semigroup b => Semigroup (Combine a b) where
+  (Combine f) <> (Combine g) = Combine $ \a -> f a <> g a
+
+instance (CoArbitrary a, Arbitrary b) => Arbitrary (Combine a b) where
+  arbitrary = Combine <$> arbitrary
+
+instance Show (Combine a b) where
+  show _ = "Combine"
+
+combineAssoc :: Int -> Combine Int String -> Combine Int String -> Combine Int String -> Bool
+combineAssoc x f g h = unCombine ((f <> g) <> h) x == unCombine (f <> (g <> h)) x
+
+main' :: IO ()
+main' = do
+  quickCheck (semigroupAssoc :: TrivAssoc)
+  quickCheck (semigroupAssoc :: IdentityAssoc)
+  quickCheck (semigroupAssoc :: TwoAssoc)
+  quickCheck (semigroupAssoc :: ThreeAssoc)
+  quickCheck (semigroupAssoc :: FourAssoc)
+  quickCheck (semigroupAssoc :: BoolConjAssoc)
+  quickCheck (semigroupAssoc :: BoolDisjAssoc)
+  quickCheck (semigroupAssoc :: OrAssoc)
+  quickCheck combineAssoc
