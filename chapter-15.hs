@@ -1,6 +1,7 @@
 -- Chapter 15 exercises
 
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# OPTIONS_GHC -w #-}
 
 module Chapter_15 where
@@ -397,3 +398,137 @@ main'' = do
   quickCheck (semigroupAssoc :: OrAssoc)
   quickCheck combineAssoc
   quickCheck compAssoc
+
+-- Monoid exercises
+
+{-
+Given a datatype, implement the Monoid instance. Add Monoid constraints to type
+variables where needed. For the datatypes you’ve already implemented Semigroup
+instances for, you need to figure out what the identity value is.
+-}
+
+-- 1.
+
+{-
+Again, validate all of your instances with QuickCheck. Example scaffold is
+provided for the Trivial type.
+-}
+
+instance Monoid Trivial where
+  mempty = Trivial
+  mappend = (<>)
+
+-- 2
+
+instance Monoid a => Monoid (Identity a) where
+  mempty = Identity mempty
+  mappend = (<>)
+
+-- 3
+
+instance (Monoid a, Monoid b) => Monoid (Two a b) where
+  mempty = Two mempty mempty
+  mappend = (<>)
+
+-- 4
+
+instance Monoid BoolConj where
+  mempty = BoolConj True
+  mappend = (<>)
+
+-- 5
+
+instance Monoid BoolDisj where
+  mempty = BoolDisj False
+  mappend = (<>)
+
+-- 6
+
+instance (Monoid b) => Monoid (Combine a b) where
+  mempty = Combine (const mempty)
+  mappend = (<>)
+
+combineLeftIdentity :: Int -> Combine Int String -> Bool
+combineLeftIdentity i f = unCombine (mempty `mappend` f) i == unCombine f i
+
+combineRightIdentity :: Int -> Combine Int String -> Bool
+combineRightIdentity i f = unCombine (f `mappend` mempty) i == unCombine f i
+
+-- 7
+
+instance Monoid (Comp a) where
+  mempty = Comp id
+  mappend = (<>)
+
+compLeftIdentity :: Int -> Comp Int -> Bool
+compLeftIdentity i f = unComp (mempty `mappend` f) i == unComp f i
+
+compRightIdentity :: Int -> Comp Int -> Bool
+compRightIdentity i f = unComp (f `mappend` mempty) i == unComp f i
+
+-- 8
+
+{-
+This next exercise will involve doing something that will feel a bit unnatural
+still and you may find it difficult. If you get it and you haven’t done much FP
+or Haskell before, get yourself a nice beverage. We’re going to toss you the
+instance declaration so you don’t churn on a missing Monoid constraint you
+didn’t know you needed.
+-}
+
+newtype Mem s a =
+  Mem {
+    runMem :: s -> (a, s)
+  }
+
+instance (Semigroup a) => Semigroup (Mem s a) where
+  (Mem f) <> (Mem g) =
+    Mem $ \s -> let (a1, s1) = g s
+                    (a2, s2) = f s1
+                in
+                  (a1 <> a2, s2)
+
+instance (Monoid a) => Monoid (Mem s a) where
+  mempty = Mem $ \s -> (mempty, s)
+  mappend = (<>)
+
+-- Given the following code:
+
+f' = Mem $ \s -> ("hi", s + 1)
+
+test = do
+  let rmzero = runMem mempty 0
+      rmleft = runMem (f' <> mempty) 0
+      rmright = runMem (mempty <> f') 0
+  print rmleft
+  print rmright
+  print (rmzero :: (String, Int))
+  print $ rmleft == runMem f' 0
+  print $ rmright == runMem f' 0
+
+{-
+A correct Monoid for Mem should, given the above code, get the following output:
+
+Prelude> main
+("hi",1)
+("hi",1)
+("",0)
+True True
+-}
+
+main''' :: IO ()
+main''' = do
+  quickCheck (monoidLeftIdentity :: Trivial -> Bool)
+  quickCheck (monoidRightIdentity :: Trivial -> Bool)
+  quickCheck (monoidLeftIdentity :: Identity String -> Bool)
+  quickCheck (monoidRightIdentity :: Identity String -> Bool)
+  quickCheck (monoidLeftIdentity :: Two String [Int] -> Bool)
+  quickCheck (monoidRightIdentity :: Two String [Int] -> Bool)
+  quickCheck (monoidLeftIdentity :: BoolConj -> Bool)
+  quickCheck (monoidRightIdentity :: BoolConj -> Bool)
+  quickCheck (monoidLeftIdentity :: BoolDisj -> Bool)
+  quickCheck (monoidRightIdentity :: BoolDisj -> Bool)
+  quickCheck combineLeftIdentity
+  quickCheck combineRightIdentity
+  quickCheck compLeftIdentity
+  quickCheck compRightIdentity
