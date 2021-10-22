@@ -75,3 +75,17 @@ instance Functor Identity where
 instance Applicative Identity where
   pure x = Identity x
   Identity f <*> Identity x = Identity $ f x
+
+-- Exercise: Constant Instance
+
+-- Write an Applicative instance for Constant.
+
+newtype Constant a b = Constant a
+  deriving (Eq, Show)
+
+instance Functor (Constant a) where
+  fmap _ (Constant x) = Constant x
+
+instance Monoid a => Applicative (Constant a) where
+  pure x = Constant mempty
+  Constant f <*> Constant x = Constant $ f <> x
