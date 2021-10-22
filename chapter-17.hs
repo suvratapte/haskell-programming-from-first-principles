@@ -1,5 +1,6 @@
  -- I dont't want any warnings as exercises will have some warnings.
 {-# OPTIONS_GHC -w #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Chapter_17 where
 
@@ -60,3 +61,17 @@ y3 = lookup 2 $ zip xs ys
 
 summed :: Maybe Integer
 summed = fmap sum $ (,) <$> x3 <*> y3
+
+-- Exercise: Identity Instance
+
+-- Write an Applicative instance for Identity.
+
+newtype Identity a = Identity a
+  deriving (Eq, Ord, Show)
+
+instance Functor Identity where
+  fmap f (Identity x) = Identity $ f x
+
+instance Applicative Identity where
+  pure x = Identity x
+  Identity f <*> Identity x = Identity $ f x
