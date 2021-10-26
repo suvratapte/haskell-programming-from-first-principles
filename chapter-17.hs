@@ -1,12 +1,14 @@
  -- I dont't want any warnings as exercises will have some warnings.
 {-# OPTIONS_GHC -w #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 
 module Chapter_17 where
 
 import Data.List (elemIndex)
 import Control.Applicative
-import Test.QuickCheck
+import Test.QuickCheck hiding (Success, Failure)
 import Test.QuickCheck.Checkers
 import Test.QuickCheck.Classes
 
@@ -157,3 +159,78 @@ instance Eq a => EqProp (List a) where
 
 -- To test with quickBatch:
 -- quickBatch . applicative $ Cons ("1", "2", "3") Nil
+
+toList :: Foldable t => t a -> List a
+toList = foldr Cons Nil
+
+fromList :: List a -> [a]
+fromList Nil        = []
+fromList (Cons h t) = h : fromList t
+
+fold :: (a -> b -> b) -> b -> List a -> b
+fold _ z Nil        = z
+fold f z (Cons h t) = f h (fold f z t)
+
+concat' :: List (List a) -> List a
+concat' = fold (<>) Nil
+
+flatMap :: (a -> List b) -> List a -> List b
+flatMap f l = concat' (fmap f l)
+
+-- ZipList Applicative Exercise
+
+-- Implement the ZipList Applicative. Use the checkers library to validate your
+-- Applicative instance.
+
+newtype ZipList' a = ZipList' (List a)
+  deriving (Eq, Show)
+  deriving (Semigroup, Monoid) via (List a)
+
+take' :: Int -> List a -> List a
+take' 0 _ = Nil
+take' _ Nil = Nil
+take' n (Cons x xs) = Cons x $ take' (n - 1) xs
+
+instance Arbitrary a => Arbitrary (ZipList' a) where
+  arbitrary = ZipList' <$> arbitrary
+
+instance Eq a => EqProp (ZipList' a) where
+  xs =-= ys = xs' `eq` ys'
+    where xs' = let (ZipList' l) = xs
+                in take' 3000 l
+          ys' = let (ZipList' l) = ys
+                in take' 3000 l
+
+instance Functor ZipList' where
+  fmap f (ZipList' xs) = ZipList' $ fmap f xs
+
+instance Applicative ZipList' where
+  pure x = ZipList' $ Cons x Nil
+  ZipList' Nil <*> _ = ZipList' Nil
+  _ <*> ZipList' Nil = ZipList' Nil
+  ZipList' (Cons f fs) <*> ZipList' (Cons x xs) =
+    ZipList' (Cons (f x) Nil) `mappend` (ZipList' fs <*> ZipList' xs)
+
+-- Exercise: Variations on Either
+
+{-
+Validation has the same representation as Either, but it can be dif- ferent. The
+Functor will behave the same, but the Applicative will be different. See above
+for an idea of how Validation should behave. Use the checkers library.
+-}
+
+data Validation e a =
+    Failure e
+  | Success a
+  deriving (Eq, Show)
+
+instance Functor (Validation e) where
+  fmap _ (Failure e) = Failure e
+  fmap f (Success a) = Success $ f a
+
+instance Monoid e => Applicative (Validation e) where
+  pure = Success
+  Failure x <*> Failure y = Failure $ x <> y
+  Failure x <*> _ = Failure x
+  _ <*> Failure y = Failure y
+  Success f <*> Success x = Success $ f x
