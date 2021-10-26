@@ -6,8 +6,8 @@
 
 module Chapter_17 where
 
-import Data.List (elemIndex)
 import Control.Applicative
+import Data.List (elemIndex)
 import Test.QuickCheck hiding (Success, Failure)
 import Test.QuickCheck.Checkers
 import Test.QuickCheck.Classes
@@ -263,3 +263,97 @@ pure :: a -> (x, a)
 pure :: a -> (e -> a)
 (<*>) :: (e -> (a -> b)) -> (e -> a) -> (e -> b)
 -}
+
+{-
+Write instances for the following datatypes. Confused? Write out what the type
+should be. Use the checkers library to validate the instances.
+-}
+
+-- 1
+data Pair a = Pair a a
+  deriving (Eq, Show)
+
+instance Functor Pair where
+  fmap f (Pair a a') = Pair (f a) (f a')
+
+instance Applicative Pair where
+  pure x = Pair x x
+  Pair f f' <*> Pair x x' = Pair (f x) (f' x')
+
+-- 2
+-- This should look familiar.
+
+data Two a b = Two a b
+  deriving (Eq, Show)
+
+instance Functor (Two a) where
+  fmap f (Two a b) = Two a $ f b
+
+instance Monoid a => Applicative (Two a) where
+  pure x = Two mempty x
+  Two a f <*> Two a' x = Two (a `mappend` a') $ f x
+
+-- 3
+data Three a b c = Three a b c
+  deriving (Eq, Show)
+
+instance Functor (Three a b) where
+  fmap f (Three a b c) = Three a b (f c)
+
+instance (Monoid a, Monoid b) => Applicative (Three a b) where
+  pure x = Three mempty mempty x
+  Three a b f <*> Three a' b' x =
+    Three (a `mappend` a') (b `mappend` b') $ f x
+
+-- 4
+data Three' a b = Three' a b b
+  deriving (Eq, Show)
+
+instance Functor (Three' a) where
+  fmap f (Three' a b b') = Three' a (f b) (f b')
+
+instance Monoid a => Applicative (Three' a) where
+  pure x = Three' mempty x x
+  Three' a f f' <*> Three' a' x x' =
+    Three' (a `mappend` a') (f x) (f' x')
+
+-- 5
+data Four a b c d = Four a b c d
+  deriving (Eq, Show)
+
+instance Functor (Four a b c) where
+  fmap f (Four a b c d) = Four a b c (f d)
+
+instance (Monoid a, Monoid b, Monoid c) => Applicative (Four a b c) where
+  pure x = Four mempty mempty mempty x
+  Four a b c f <*> Four a' b' c' x =
+    Four (a `mappend` a') (b `mappend` b') (c `mappend` c') $ f x
+
+-- 6
+data Four' a b = Four' a a a b
+  deriving (Eq, Show)
+
+instance Functor (Four' a) where
+  fmap f (Four' a1 a2 a3 b) = Four' a1 a2 a3 (f b)
+
+instance Monoid a => Applicative (Four' a) where
+  pure x = Four' mempty mempty mempty x
+  Four' a1 a2 a3 f <*> Four' a1' a2' a3' x =
+    Four' (a1 <> a1') (a2 <> a2') (a3 <> a3') $ f x
+
+-- Combinations
+
+{-
+Remember the vowels and stops exercise in the folds chapter? Write the function
+to generate the possible combinations of three input lists using liftA3 from
+Control.Applicative.
+-}
+
+stops :: String
+stops = "pbtdkg"
+
+vowels :: String
+vowels = "aeiou"
+
+combos :: [a] -> [b] -> [c] -> [(a, b, c)]
+combos = liftA3 (,,)
