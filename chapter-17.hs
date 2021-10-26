@@ -234,3 +234,32 @@ instance Monoid e => Applicative (Validation e) where
   Failure x <*> _ = Failure x
   _ <*> Failure y = Failure y
   Success f <*> Success x = Success $ f x
+
+-- Chapter Exercises
+
+{-
+Given a type that has an instance of Applicative, specialize the types of the
+methods. Test your specialization in the REPL. One way to do this is to bind
+aliases of the typeclass methods to more concrete types that have the type we
+told you to fill in.
+
+-- 1
+
+pure :: a -> [a]
+(<*>) ::  [ a -> b] -> [a] -> [b]
+
+-- 2
+
+pure :: a -> IO a
+(<*>) :: IO (a -> b) -> IO a -> IO b
+
+-- 3
+
+pure :: a -> (x, a)
+(<*>) :: (x, (a -> b)) -> (x, a) -> (x, b)
+
+-- 4
+
+pure :: a -> (e -> a)
+(<*>) :: (e -> (a -> b)) -> (e -> a) -> (e -> b)
+-}
