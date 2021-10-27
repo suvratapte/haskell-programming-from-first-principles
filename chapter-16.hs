@@ -1,4 +1,4 @@
- -- I dont't want any warnings as exercises will have some warnings.
+ -- I don't want any warnings as exercises will have some warnings.
 {-# OPTIONS_GHC -w #-}
 {-# LANGUAGE FlexibleInstances #-}
 
