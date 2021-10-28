@@ -3,7 +3,7 @@
 
 module Chapter_18 where
 
-import GHC.Base (join)
+import GHC.Base (join, liftA3, Applicative (liftA2))
 
 -- The answer is the exercise
 
@@ -130,3 +130,35 @@ instance Monad List where
   return = pure
   Nil >>= _ = Nil
   Cons x xs >>= f = f x <> (xs >>= f)
+
+{-
+Write the following functions using the methods provided by Monad and
+Functor. Using stuff like identity and composition is fine, but it has to
+typecheck with types provided.
+-}
+
+-- 1
+j :: Monad m => m (m a) -> m a
+j = (>>= id)
+
+-- 2
+l1 :: Monad m => (a -> b) -> m a -> m b
+l1 = fmap
+
+-- 3
+l2 :: Monad m => (a -> b -> c) -> m a -> m b -> m c
+l2 abc ma mb = ma >>= (\a -> mb >>= (\b -> return $ abc a b))
+
+-- 4
+a :: Monad m => m a -> m (a -> b) -> m b
+a ma mab = mab >>= \ab -> ma >>= \a -> return $ ab a
+
+-- 5
+-- You’ll need recursion for this one.
+meh :: Monad m => [a] -> (a -> m b) -> m [b]
+meh [] _ = return []
+meh (a:as) f = f a >>= \b -> (b :) <$> meh as f
+
+-- 6
+flipType :: (Monad m) => [m a] -> m [a]
+flipType = (`meh` id)
