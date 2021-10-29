@@ -12,6 +12,8 @@ import Network.URI (URI, parseURI)
 import qualified System.Random as SR
 import Web.Scotty
 
+import Web.Scotty.Internal.Types (ActionT)
+
 alphaNum :: String
 alphaNum = ['A'..'Z'] ++ ['0'..'9']
 
@@ -61,18 +63,7 @@ shortyFound tbs =
 
 app :: R.Connection -> ScottyM ()
 app rConn = do
-  get "/" $ do
-    uri <- param "uri"
-    let parsedUri :: Maybe URI
-        parsedUri = parseURI (TL.unpack uri)
-    case parsedUri of
-      Just _ -> do
-        shawty <- liftIO shortyGen
-        let shorty = BC.pack shawty
-            uri' = encodeUtf8 (TL.toStrict uri)
-        resp <- liftIO (saveURI rConn shorty uri')
-        html (shortyCreated resp shawty)
-      Nothing -> text (shortyAintUri uri)
+  get "/" $ handleSaveSafe 10 rConn
   get "/:short" $ do
     short <- param "short"
     uri <- liftIO (getURI rConn short)
@@ -85,6 +76,49 @@ app rConn = do
           Just bs -> html (shortyFound tbs)
             where tbs :: TL.Text
                   tbs = TL.fromStrict (decodeUtf8 bs)
+
+handleSave :: R.Connection -> Web.Scotty.Internal.Types.ActionT TL.Text IO ()
+handleSave rConn = do
+  uri <- param "uri"
+  let parsedUri :: Maybe URI
+      parsedUri = parseURI (TL.unpack uri)
+  case parsedUri of
+    Just _ -> do
+      shawty <- liftIO shortyGen
+      let shorty = BC.pack shawty
+          uri' = encodeUtf8 (TL.toStrict uri)
+      resp <- liftIO (saveURI rConn shorty uri')
+      html (shortyCreated resp shawty)
+    Nothing -> text (shortyAintUri uri)
+
+handleSaveSafe :: Int -> R.Connection -> Web.Scotty.Internal.Types.ActionT TL.Text IO ()
+handleSaveSafe nRetries rConn =
+  if nRetries == 0
+  then text "Ran out of URLs"
+  else
+    do
+      uri <- param "uri"
+      let parsedUri :: Maybe URI
+          parsedUri = parseURI (TL.unpack uri)
+      case parsedUri of
+        Just _ -> do
+          shawty <- liftIO shortyGen
+
+          -- Check if this already exists
+          existingUri <- liftIO $ getURI rConn $ BC.pack shawty
+          case existingUri of
+
+            -- The key exists, retry
+            Right _ -> handleSaveSafe (nRetries - 1) rConn
+
+            -- The key doesn't exist, go ahead
+            Left _ -> do
+              let shorty = BC.pack shawty
+                  uri' = encodeUtf8 (TL.toStrict uri)
+              resp <- liftIO (saveURI rConn shorty uri')
+              html (shortyCreated resp shawty)
+        Nothing -> text (shortyAintUri uri)
+
 
 main :: IO ()
 main = do
