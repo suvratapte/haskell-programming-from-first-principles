@@ -96,3 +96,46 @@ foldMapFoldr :: (Foldable t, Monoid m) => (a -> m) -> t a -> m
 foldMapFoldr f = foldr ((<>) . f) mempty
 
 -- Reads better as: foldr (\e acc -> f e <> acc) mempty
+
+-- Chapter Exercises
+
+-- Write Foldable instances for the following datatypes.
+
+-- 1
+data Constant a b = Constant b
+  deriving (Eq, Show)
+
+instance Foldable (Constant a) where
+  foldMap f (Constant b) = f b
+
+-- 2
+data Two a b = Two a b
+  deriving (Eq, Show)
+
+instance Foldable (Two a) where
+  foldMap f (Two _ b) = f b
+
+-- 3
+data Three a b c = Three a b c
+  deriving (Eq, Show)
+
+instance Foldable (Three a b) where
+  foldMap f (Three _ _ c) = f c
+
+-- 4
+data Three' a b = Three' a b b
+  deriving (Eq, Show)
+
+instance Foldable (Three' a) where
+  foldMap f (Three' _ b b') = f b <> f b'
+
+data Four' a b = Four' a b b b
+  deriving (Eq, Show)
+
+instance Foldable (Four' a) where
+  foldMap f (Four' _ b b' b'') = f b <> f b' <> f b''
+
+-- Thinking cap time. Write a filter function for Foldable types using foldMap.
+
+filterF :: (Applicative f, Foldable t, Monoid (f a)) => (a -> Bool) -> t a -> f a
+filterF f = foldMap (\a -> if f a then pure a else mempty)
