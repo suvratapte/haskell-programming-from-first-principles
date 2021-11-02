@@ -3,9 +3,6 @@
 
 module Chapter_21 where
 
-import Test.QuickCheck
-import Test.QuickCheck.Checkers
-
 -- Chapter Exercises
 
 -- Traversable instances
