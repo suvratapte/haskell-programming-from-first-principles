@@ -3,6 +3,9 @@
 
 module Chapter_21 where
 
+import Test.QuickCheck
+import Test.QuickCheck.Checkers
+
 -- Chapter Exercises
 
 -- Traversable instances
@@ -101,6 +104,7 @@ instance Traversable (Pair a) where
   traverse f (Pair a b) = Pair a <$> f b
 
 -- Big
+
 -- When you have more than one value of type 𝑏, you’ll want to use Monoid and
 -- Applicative for the Foldable and Traversable instances respectively.
 
@@ -130,3 +134,44 @@ instance Foldable (Bigger a) where
 
 instance Traversable (Bigger a) where
   traverse f (Bigger a b b' b'') = Bigger a <$> f b <*> f b' <*> f b''
+
+-- S
+
+-- This may be difficult. To make it easier, we’ll give you the constraints and
+-- QuickCheck instances:
+data S n a = S (n a) a
+  deriving (Eq, Show)
+
+instance Functor n => Functor (S n) where
+  fmap f (S na a) = S (fmap f na) $ f a
+
+instance Foldable n => Foldable (S n) where
+  foldMap f (S na a) = foldMap f na <> f a
+
+instance Traversable n => Traversable (S n) where
+  traverse f (S na a) = S <$> traverse f na <*> f a
+
+-- Instances for Tree
+
+-- This might be hard. Write the following instances for Tree.
+
+data Tree a =
+    Empty
+  | Leaf a
+  | Node (Tree a) a (Tree a)
+  deriving (Eq, Show)
+
+instance Functor Tree where
+  fmap f Empty = Empty
+  fmap f (Leaf a) = Leaf $ f a
+  fmap f (Node l a r) = Node (fmap f l) (f a) (fmap f r)
+
+instance Foldable Tree where
+  foldMap f Empty = mempty
+  foldMap f (Leaf a) = f a
+  foldMap f (Node l a r) = foldMap f l <> f a <> foldMap f r
+
+instance Traversable Tree where
+  traverse f Empty = pure Empty
+  traverse f (Leaf a) = Leaf <$> f a
+  traverse f (Node l a r) = Node <$> traverse f l <*> f a <*> traverse f r
