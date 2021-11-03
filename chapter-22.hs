@@ -120,3 +120,134 @@ tupledM = cap >>= \c -> rev >>= \r -> return (r, c)
 
 tupledM' :: [Char] -> ([Char], [Char])
 tupledM' = rev >>= \r -> cap >>= \c -> return (c, r)
+
+-- Exercise: Ask
+
+{-
+Implement the following function. If you get stuck, remember it’s less
+complicated than it looks. Write down what you know. What do you know about the
+type a? What does the type simplify to? How many inhabitants does that type
+have? You’ve seen the type before.
+-}
+
+newtype Reader r a = Reader { runReader :: r -> a }
+
+ask :: Reader a a
+ask = Reader id
+
+--
+
+newtype HumanName = HumanName String
+  deriving (Eq, Show)
+
+newtype DogName = DogName String
+  deriving (Eq, Show)
+
+newtype Address = Address String
+  deriving (Eq, Show)
+
+data Person = Person {
+    humanName :: HumanName
+  , dogName :: DogName
+  , address :: Address
+  }
+  deriving (Eq, Show)
+
+data Dog = Dog {
+    dogsName :: DogName
+  , dogsAddress :: Address
+  }
+  deriving (Eq, Show)
+
+pers :: Person
+pers = Person (HumanName "Big Bird") (DogName "Barkley") (Address "Sesame Street")
+
+chris :: Person
+chris = Person (HumanName "Chris Allen") (DogName "Papu") (Address "Austin")
+
+getDog :: Person -> Dog
+getDog p  = Dog (dogName p) (address p)
+
+getDogR :: Person -> Dog
+getDogR = Dog <$> dogName <*> address
+
+-- For my understanding:
+
+{-
+Dog :: DogName -> Address -> Dog
+dogName :: Person -> DogName
+
+fmap :: (a -> b) -> f a -> f b
+
+-- Our f is ((->) r)
+
+fmap :: (a -> b) -> (r -> a) -> (r -> b)
+
+-- So with `fmap Dog dogName`, we can say
+
+-- (a -> b) ~ (DogName -> Address -> Dog)
+-- a ~ DogName
+-- b ~ Address -> Dog
+
+-- (r -> a) ~ (Person -> DogName)
+-- r ~ Person
+-- a ~ DogName
+
+-- So the type of the whole expression:
+Dog <$> dogName :: Person -> Address -> Dog
+
+
+(<*>) :: (e -> a -> b) -> (e -> a) -> (e -> b)
+
+(Dog <$> dogName) <*> address
+
+-- So
+
+(e -> a -> b) ~ (Person  -> Address -> Dog)
+
+(e -> a) ~ (Person -> Address)
+
+(e -> b) ~ (Person -> Dog)
+
+Dog <$> dogName <*> address :: Person -> Dog
+-}
+
+-- Exercise: Reading Comprehension
+
+-- 1
+
+-- Write liftA2 yourself. Think about it in terms of abstracting out the
+-- difference between getDogR and getDogR' if that helps.
+
+myLiftA2 :: Applicative f => (a -> b -> c) -> f a -> f b -> f c
+myLiftA2 fabc fa fb = fabc <$> fa <*> fb
+
+-- Point free (but more complex) :
+-- myLiftA2 = ((<*>) .) . (<$>)
+
+-- 2
+--  Write the following function. Again, it is simpler than it looks.
+asks :: (r -> a) -> Reader r a
+asks f = Reader f
+
+-- 3
+{-
+Implement the Applicative for Reader.
+
+To write the Applicative instance for Reader, we’ll use an extension called
+InstanceSigs. It’s an extension we need in order to assert a type for the
+typeclass methods. You ordinarily cannot assert type signatures in
+instances. The compiler already knows the type of the functions, so it’s not
+usually necessary to assert the types in instances anyway. We did this for the
+sake of clarity, to make the Reader type explicit in our signatures.
+-}
+
+-- I have not used InstanceSigs since I am comfortable with the default
+-- signatures:
+
+instance Functor (Reader r) where
+  fmap fab (Reader ra) = Reader (fab . ra)
+
+instance Applicative (Reader r) where
+  pure x = Reader $ const x
+  (Reader rab) <*> (Reader ra) = Reader (\r -> rab r (ra r))
