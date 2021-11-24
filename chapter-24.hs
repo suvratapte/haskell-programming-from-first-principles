@@ -1,5 +1,6 @@
  -- I don't want any warnings as exercises will have some warnings.
 {-# OPTIONS_GHC -w #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Chapter_24 where
 
@@ -7,6 +8,8 @@ import Text.Trifecta
 
 import Text.Parser.Combinators
 import Control.Applicative
+
+import Data.Ratio ((%))
 
 stop :: Parser a
 stop = unexpected "stop"
@@ -68,3 +71,63 @@ oneTwoThree = string "123" <|> string "12" <|> string "1" <|> stop
 
 stringParser :: String -> Parser String
 stringParser = foldr (\c acc -> (:) <$> char c <*> acc) $ return ""
+
+--
+
+badFraction = "1/0"
+alsoBad = "10"
+shouldWork = "1/2"
+shouldAlsoWork = "2/1"
+
+parseFraction :: Parser Rational
+parseFraction = do
+  numerator <- decimal
+  char '/'
+  denominator <- decimal
+  return (numerator % denominator)
+
+main' :: IO ()
+main' = do
+  let parseFraction' = parseString parseFraction mempty
+  print $ parseFraction' shouldWork
+  print $ parseFraction' shouldAlsoWork
+  print $ parseFraction' alsoBad
+  print $ parseFraction' badFraction
+
+-- Exercise: Unit of Success
+
+{-
+This should not be unfamiliar at this point, even if you do not understand all
+the details:
+
+Prelude> parseString integer mempty "123abc"
+Success 123
+Prelude> parseString (integer >> eof) mempty "123abc"
+Failure (interactive):1:4: error: expected: digit,
+    end of input
+123abc<EOF>
+   ^
+Prelude> parseString (integer >> eof) mempty "123"
+
+Success ()
+
+You may have already deduced why it returns () as a Success result here; it’s
+consumed all the input but there is no result to return from having done so. The
+result Success () tells you the parse was successful and consumed the entire
+input, so there’s nothing to return.
+
+What we want you to try now is rewriting the final example so it returns the
+integer that it parsed instead of Success (). It should return the integer
+successfully when it receives an input with an integer followed by an EOF and
+fail in all other cases:
+
+Prelude> parseString (yourFuncHere) mempty "123"
+Success 123
+Prelude> parseString (yourFuncHere) mempty "123abc"
+Failure (interactive):1:4: error: expected: digit,
+    end of input
+123abc<EOF>
+-}
+
+s = parseString (integer <* eof) mempty "123"
+f = parseString (integer <* eof) mempty "123abc"
