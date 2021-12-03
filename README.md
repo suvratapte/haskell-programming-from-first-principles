@@ -1,4 +1,4 @@
-# haskell-exercises
+# Solutions: Haskell Programming from the First Principles
 
 Solutions for exercises from the book "Haskell Programming from the First Principles".
 
