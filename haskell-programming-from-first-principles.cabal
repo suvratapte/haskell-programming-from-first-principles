@@ -16,12 +16,15 @@ extra-source-files:  README.md
 library
   ghc-options:       -Wall -fwarn-tabs
   build-depends:     base >= 4.7 && < 5
-                   , hspec
+                   , bytestring
                    , checkers
                    , containers
+                   , hspec
                    , parsers
                    , QuickCheck
                    , random
+                   , raw-strings-qq
+                   , text
                    , transformers
                    , trifecta
   hs-source-dirs:    ./
