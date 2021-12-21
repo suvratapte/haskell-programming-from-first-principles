@@ -16,10 +16,12 @@ extra-source-files:  README.md
 library
   ghc-options:       -Wall -fwarn-tabs
   build-depends:     base >= 4.7 && < 5
+                   , attoparsec
                    , bytestring
                    , checkers
                    , containers
                    , hspec
+                   , parsec
                    , parsers
                    , QuickCheck
                    , random

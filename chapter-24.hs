@@ -10,7 +10,7 @@ import Text.Trifecta
 import Text.Parser.Combinators
 import Control.Applicative
 
-import Data.Ratio ((%))
+import Data.Ratio ((%), numerator, denominator)
 
 import Data.ByteString (ByteString)
 import Data.Char (isAlpha)
@@ -19,7 +19,10 @@ import qualified Data.Map as M
 import Data.Text (Text)
 import Test.Hspec
 import Text.RawString.QQ
-import Text.Trifecta
+
+import Data.Attoparsec.Text (parseOnly)
+import Data.String (IsString)
+
 
 stop :: Parser a
 stop = unexpected "stop"
@@ -321,3 +324,113 @@ main'' = hspec $ do
                                      , (Header "whatisit" , whatisitValues)]))
       print m
       r' `shouldBe` expected'
+
+--
+
+p' :: Parser [Integer]
+p' = some $ do
+  i <- token $ some digit
+  return $ read i
+
+--
+
+badFraction' :: IsString s => s
+badFraction' = "1/0"
+
+alsoBad' :: IsString s => s
+alsoBad' = "10"
+
+shouldWork' :: IsString s => s
+shouldWork' = "1/2"
+
+shouldAlsoWork' :: IsString s => s
+shouldAlsoWork' = "2/1"
+
+parseFraction' :: (Monad m, MonadFail m, TokenParsing m) => m Rational
+parseFraction' = do
+  numerator <- decimal
+  _ <- char '/'
+  denominator <- decimal
+  case denominator of
+    0 -> fail "Denominator cannot be zero"
+    _ -> return $ numerator % denominator
+
+main''' :: IO ()
+main''' = do
+  -- parseOnly is Attoparsec
+  let attoP = parseOnly parseFraction'
+  print $ attoP badFraction'
+  print $ attoP shouldWork'
+  print $ attoP shouldAlsoWork'
+  print $ attoP alsoBad'
+
+  -- parseString is Text.Trifecta
+  let p f i = parseString f mempty i
+  print $ p parseFraction' badFraction'
+  print $ p parseFraction' shouldWork'
+  print $ p parseFraction' shouldAlsoWork'
+  print $ p parseFraction' alsoBad'
+
+-- Chapter Exercises
+
+-- 1
+
+{-
+Write a parser for semantic versions as defined by http://semver.org/. After
+making a working parser, write an Ord instance for the SemVer type that obeys
+the specification outlined on the SemVer website.
+-}
+
+data NumberOrString =
+    NOSS String
+  | NOSI Integer
+  deriving (Eq, Show)
+
+type Major = Integer
+type Minor = Integer
+type Patch = Integer
+type Release = [NumberOrString]
+type Metadata = [NumberOrString]
+
+data SemVer = SemVer Major Minor Patch Release Metadata
+  deriving (Show, Eq)
+
+parseMetadata :: Parser Metadata
+parseMetadata = char '+' *> sepBy1 parseNumberOrString (char '.')
+
+parsePreRelease :: Parser Release
+parsePreRelease = char '-' *> sepBy1 parseNumberOrString (char '.')
+
+parseNumberOrString :: Parser NumberOrString
+parseNumberOrString =
+      (NOSI <$> integer)
+  <|> (NOSS <$> some letter)
+  <|> (NOSS <$> some (char '-'))
+
+parseSemver :: Parser SemVer
+parseSemver = do
+  major <- integer
+  _ <- char '.'
+  minor <- integer
+  _ <- char '.'
+  patch <- integer
+  release <- option [] parsePreRelease
+  metadata <- option [] parseMetadata
+  eof
+  return $ SemVer major minor patch release metadata
+
+instance Ord NumberOrString where
+  compare (NOSI _) (NOSS _) = LT
+  compare (NOSS _) (NOSI _) = GT
+  compare (NOSI x) (NOSI y) = compare x y
+  compare (NOSS x) (NOSS y) = compare x y
+
+instance Ord SemVer where
+  compare (SemVer major minor patch release _) (SemVer major' minor' patch' release' _)
+    | major /= major' = compare major major'
+    | minor /= minor' = compare minor minor'
+    | patch /= patch' = compare patch patch'
+    | null release && null release' = EQ
+    | null release = GT
+    | null release' = LT
+    | otherwise = compare release release'
